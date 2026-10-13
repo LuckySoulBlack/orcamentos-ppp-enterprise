@@ -1,0 +1,63 @@
+# Python e ferramentas locais
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+.idea/
+
+# Segredos e configuracoes privadas
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+*service-account*.json
+runtime_config.json
+
+# Bancos, backups e dados operacionais
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.bak
+*.bak_*
+backups/
+data/
+banco de dados/
+gerados/
+generated/
+relatorios/
+anexos/
+seed_cliente_admin/
+
+# Saidas de compilacao e distribuicao
+build/
+builds/
+dist/
+_internal/
+Pacote_Instalacao*/
+*.zip
+*.7z
+*.rar
+*.exe
+*.dll
+*.pyd
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+/src/str
+
+# Identidade e arquivos particulares configurados no computador
+/src/app/assets/empresa/
+/src/app/app/

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal do Executor - OS PPP</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Segoe UI, sans-serif; background: #eef4fb; color: #10213a; }
+    header { position: sticky; top: 0; z-index: 10; background: #071a33; color: #fff; padding: 18px 14px; }
+    header h1 { margin: 0; font-size: 22px; }
+    header p { margin: 6px 0 0; color: #dbeafe; }
+    main { max-width: 980px; margin: 0 auto; padding: 12px 12px 140px; }
+    .card { background: #fff; border: 1px solid #d5e1ef; border-radius: 10px; padding: 14px; margin: 12px 0; }
+    .meta { display: grid; grid-template-columns: 110px 1fr; gap: 8px 12px; }
+    h2 { margin: 0 0 8px; font-size: 21px; color: #071a33; }
+    h3 { margin: 16px 0 8px; font-size: 17px; color: #0b3b75; }
+    label { display: block; margin: 12px 0 6px; font-weight: 800; }
+    textarea { width: 100%; min-height: 78px; border: 1px solid #cbd8e8; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; }
+    .table-wrap { overflow: auto; border: 1px solid #e1eaf5; border-radius: 8px; }
+    table { width: 100%; min-width: 640px; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #e1eaf5; text-align: left; vertical-align: top; }
+    th { background: #eaf2ff; color: #0b3b75; }
+    .foto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .foto-card { background: #f8fbff; border: 1px solid #d5e1ef; border-radius: 8px; padding: 12px; }
+    .contador { display: block; margin-top: 4px; color: #0b3b75; font-weight: 800; }
+    .foto-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    button { border: 0; border-radius: 8px; padding: 13px 10px; font-size: 15px; font-weight: 900; color: #fff; background: #0b3b75; }
+    button.sec { background: #2563eb; }
+    button.ok { background: #16a34a; }
+    .bar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #d5e1ef; box-shadow: 0 -8px 24px rgba(15,23,42,.14); padding: 10px 12px; }
+    .bar-inner { max-width: 980px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hint { max-width: 980px; margin: 8px auto 0; font-size: 14px; color: #52627a; }
+    .erro { border-color: #fecaca; background: #fff7f7; color: #991b1b; }
+    @media (max-width: 680px) {
+      main { padding-bottom: 170px; }
+      .meta { grid-template-columns: 1fr; }
+      .bar-inner, .foto-actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Portal do Executor</h1>
+    <p id="subtitulo">Carregando OS...</p>
+  </header>
+  <main id="app"></main>
+  <div class="bar">
+    <div class="bar-inner">
+      <button class="ok" type="button" onclick="encaminhar()">Encaminhar fotos da OS</button>
+      <button class="sec" type="button" onclick="baixarResumo()">Baixar resumo</button>
+    </div>
+    <div class="hint">O envio gera um único ZIP com fotos e observações. Importe esse ZIP no OS PPP.</div>
+  </div>
+  <script>
+    let osData = null;
+    const selecionadas = [];
+    const categorias = [["Antes", "Início da obra"], ["Durante", "Durante a execução"], ["Depois", "Final / entrega"]];
+
+    function html(txt) {
+      return String(txt || "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+    }
+    function limparNome(txt) {
+      return String(txt || "registro").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "registro";
+    }
+    function decodePayload() {
+      const qs = new URLSearchParams(location.search);
+      let d = qs.get("d") || "";
+      if (!d && location.hash.startsWith("#d=")) d = location.hash.slice(3);
+      if (!d) throw new Error("Link sem dados da Ordem de Serviço.");
+      d = d.replace(/-/g, "+").replace(/_/g, "/");
+      while (d.length % 4) d += "=";
+      const bytes = Uint8Array.from(atob(d), c => c.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+    function render() {
+      const app = document.getElementById("app");
+      try {
+        osData = decodePayload();
+      } catch (err) {
+        app.innerHTML = `<section class="card erro"><h2>Não foi possível abrir a OS</h2><p>${html(err.message)}</p><p>Peça ao responsável para gerar novamente o link pelo OS PPP.</p></section>`;
+        document.getElementById("subtitulo").textContent = "Link inválido";
+        return;
+      }
+      document.getElementById("subtitulo").textContent = `${osData.numero || "OS"} - registre fotos e observações`;
+      const etapas = Array.isArray(osData.etapas) && osData.etapas.length ? osData.etapas : [{ id: "geral", nome: "Registro fotográfico", descricao: "", itens: [] }];
+      app.innerHTML = `
+        <section class="card meta">
+          <strong>OS</strong><span>${html(osData.numero)}</span>
+          <strong>Cliente</strong><span>${html(osData.cliente)}</span>
+          <strong>Objeto</strong><span>${html(osData.objeto)}</span>
+          <strong>Local</strong><span>${html(osData.local)}</span>
+          <strong>Executor</strong><span>${html(osData.executor)}</span>
+        </section>
+        ${etapas.map(etapaHtml).join("")}
+      `;
+    }
+    function etapaHtml(etapa) {
+      const itens = Array.isArray(etapa.itens) ? etapa.itens : [];
+      const linhas = itens.length ? itens.map(i => `<tr><td>${html(i.codigo)}</td><td>${html(i.descricao)}</td><td>${html(i.unidade)}</td><td>${html(i.quantidade)}</td><td>${html(i.origem)}</td></tr>`).join("") : "<tr><td colspan='5'>Sem materiais ou itens cadastrados para esta etapa.</td></tr>";
+      const fotos = categorias.map(([cat, rotulo]) => fotoCard(etapa, cat, rotulo)).join("");
+      return `
+        <section class="card etapa" data-etapa="${html(etapa.id)}">
+          <h2>${html(etapa.nome)}</h2>
+          <p>${html(etapa.descricao)}</p>
+          <h3>Materiais, serviços e itens previstos</h3>
+          <div class="table-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Un.</th><th>Qtd.</th><th>Origem</th></tr></thead><tbody>${linhas}</tbody></table></div>
+          <h3>Fotos da etapa</h3>
+          <div class="foto-grid">${fotos}</div>
+          <label>Materiais e ferramentas usados</label>
+          <textarea data-campo="materiais" placeholder="Ex.: cabos, conectores, escada, EPIs, máquina, veículo..."></textarea>
+          <label>Ocorrências ou despesas adicionais sem valor</label>
+          <textarea data-campo="custos" placeholder="Ex.: deslocamento extra, compra emergencial, apoio adicional, sem informar preço..."></textarea>
+          <label>Observação da execução</label>
+          <textarea data-campo="observacao" placeholder="Descreva algo importante para comprovar a execução."></textarea>
+        </section>
+      `;
+    }
+    function fotoCard(etapa, categoria, rotulo) {
+      const base = `etapa_${limparNome(etapa.id)}_${limparNome(categoria)}`;
+      return `
+        <div class="foto-card">
+          <strong>${html(rotulo)}</strong>
+          <span class="contador" id="contador_${base}">0 foto(s)</span>
+          <div class="foto-actions">
+            <button type="button" onclick="abrirInput('${base}_camera')">Tirar fotos</button>
+            <button type="button" onclick="abrirInput('${base}_galeria')">Galeria do celular</button>
+          </div>
+          <input id="${base}_camera" hidden type="file" accept="image/*" capture="environment" multiple onchange="registrarFotos(event, '${html(etapa.id)}', '${html(etapa.nome)}', '${html(categoria)}', 'contador_${base}')">
+          <input id="${base}_galeria" hidden type="file" accept="image/*" multiple onchange="registrarFotos(event, '${html(etapa.id)}', '${html(etapa.nome)}', '${html(categoria)}', 'contador_${base}')">
+        </div>
+      `;
+    }
+    function abrirInput(id) {
+      const input = document.getElementById(id);
+      if (input) input.click();
+    }
+    function registrarFotos(event, etapaId, etapaNome, categoria, contadorId) {
+      Array.from(event.target.files || []).forEach(file => selecionadas.push({ file, etapaId, etapaNome, categoria }));
+      const total = selecionadas.filter(f => f.etapaId === etapaId && f.categoria === categoria).length;
+      const contador = document.getElementById(contadorId);
+      if (contador) contador.textContent = total + " foto(s)";
+      event.target.value = "";
+    }
+    function coletarObservacoes() {
+      return Array.from(document.querySelectorAll("section.etapa")).map(sec => ({
+        etapa: sec.dataset.etapa,
+        titulo: sec.querySelector("h2")?.textContent || sec.dataset.etapa,
+        materiais: sec.querySelector("[data-campo='materiais']")?.value || "",
+        custos: sec.querySelector("[data-campo='custos']")?.value || "",
+        observacao: sec.querySelector("[data-campo='observacao']")?.value || "",
+      }));
+    }
+    function resumoTexto() {
+      const numero = osData?.numero || "OS";
+      const linhas = ["OS: " + numero, "Gerado em: " + new Date().toLocaleString("pt-BR"), "", "FOTOS SELECIONADAS"];
+      if (!selecionadas.length) linhas.push("Nenhuma foto selecionada.");
+      selecionadas.forEach((f, idx) => linhas.push(`${idx + 1}. ${f.categoria} | ${f.etapaNome} | ${f.file.name}`));
+      linhas.push("", "OBSERVACOES POR ETAPA");
+      coletarObservacoes().forEach(o => {
+        linhas.push("", "Etapa: " + o.titulo, "Materiais/ferramentas: " + (o.materiais || "-"), "Ocorrencias/despesas sem valor: " + (o.custos || "-"), "Observacao: " + (o.observacao || "-"));
+      });
+      return linhas.join("\n");
+    }
+    function crc32(buf) {
+      let table = crc32.table;
+      if (!table) {
+        table = crc32.table = Array.from({ length: 256 }, (_, n) => {
+          let c = n;
+          for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+          return c >>> 0;
+        });
+      }
+      let crc = -1;
+      const arr = new Uint8Array(buf);
+      for (let i = 0; i < arr.length; i++) crc = (crc >>> 8) ^ table[(crc ^ arr[i]) & 255];
+      return (crc ^ -1) >>> 0;
+    }
+    const u16 = v => [v & 255, (v >>> 8) & 255];
+    const u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+    async function gerarZip() {
+      const numero = osData?.numero || "OS";
+      const enc = new TextEncoder();
+      const files = selecionadas.map((f, idx) => {
+        const ext = (f.file.name.split(".").pop() || "jpg").toLowerCase();
+        const nome = [numero, limparNome(f.etapaNome), limparNome(f.categoria), String(idx + 1).padStart(3, "0")].join("_") + "." + ext;
+        return { file: new File([f.file], nome, { type: f.file.type || "image/jpeg" }), path: numero + "/" + limparNome(f.etapaNome) + "/" + limparNome(f.categoria) + "/" + nome };
+      });
+      files.push({ file: new File([resumoTexto()], numero + "_resumo_execucao.txt", { type: "text/plain" }), path: numero + "/" + numero + "_resumo_execucao.txt" });
+      const entradas = [], centrais = [];
+      let offset = 0;
+      for (const item of files) {
+        const data = await item.file.arrayBuffer();
+        const nameBytes = enc.encode(item.path);
+        const crc = crc32(data);
+        const local = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.byteLength), ...u32(data.byteLength), ...u16(nameBytes.length), ...u16(0), ...nameBytes]);
+        entradas.push(local, new Uint8Array(data));
+        centrais.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(crc), ...u32(data.byteLength), ...u32(data.byteLength), ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...nameBytes]));
+        offset += local.byteLength + data.byteLength;
+      }
+      const centralSize = centrais.reduce((s, a) => s + a.byteLength, 0);
+      const fim = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(centrais.length), ...u16(centrais.length), ...u32(centralSize), ...u32(offset), ...u16(0)]);
+      return new File([...entradas, ...centrais, fim], numero + "_pacote_executor.zip", { type: "application/zip" });
+    }
+    function baixarArquivo(file) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(file);
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    async function encaminhar() {
+      if (!osData) return alert("Link inválido.");
+      if (!selecionadas.length) return alert("Selecione ou tire pelo menos uma foto antes de encaminhar.");
+      const zip = await gerarZip();
+      if (navigator.canShare && navigator.canShare({ files: [zip] }) && navigator.share) {
+        try {
+          await navigator.share({ title: (osData.numero || "OS") + " - pacote executor", text: "Pacote ZIP de fotos e resumo da " + (osData.numero || "OS"), files: [zip] });
+          return;
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+        }
+      }
+      baixarArquivo(zip);
+      alert("O ZIP foi baixado. Envie esse arquivo pelo WhatsApp, e-mail ou Drive.");
+    }
+    function baixarResumo() {
+      if (!osData) return alert("Link inválido.");
+      baixarArquivo(new File([resumoTexto()], (osData.numero || "OS") + "_resumo_execucao.txt", { type: "text/plain" }));
+    }
+    render();
+  </script>
+</body>
+</html>
