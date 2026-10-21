@@ -21,6 +21,18 @@ Sistema desktop para gestão de orçamentos e ordens de serviço de contratos PP
 - `Portal_Executor_Web/index.html`: portal do executor.
 - `src/*.spec`: configuração de empacotamento com PyInstaller.
 
+## Baixar os executáveis para Windows
+
+A [release 2.2.0 — compilação de 23/07/2026](https://github.com/LuckySoulBlack/orcamentos-ppp-enterprise/releases/tag/v2.2.0-build.20260723) disponibiliza os executáveis mais recentes encontrados na distribuição local:
+
+- `Orcamentos_PPP-2.2.0-windows.zip`: aplicativo administrativo, com `Orcamentos_PPP.exe`.
+- `OS_PPP-2.2.0-windows.zip`: aplicativo operacional, com `OS_PPP.exe`.
+- `SHA256SUMS.txt`: hashes para conferir a integridade dos downloads.
+
+Extraia todo o ZIP em uma pasta e abra o executável. Mantenha a pasta `_internal` ao lado do `.exe`, pois ela contém as bibliotecas necessárias. Não é necessário instalar Python para usar esses pacotes.
+
+Os pacotes preservam os binários compilados em 23/07/2026 e não incluem banco de dados, registros operacionais, configuração local nem imagens particulares da empresa. Não são uma nova compilação do código. A integridade dos ZIPs e a correspondência dos executáveis com os originais foram verificadas; não foi realizado teste funcional da interface nesta publicação.
+
 ## Execução no Windows
 
 Requer Python 3.12 ou 3.13. A cópia local foi desenvolvida com Python 3.13; as dependências estão em `src/requirements.txt`.
